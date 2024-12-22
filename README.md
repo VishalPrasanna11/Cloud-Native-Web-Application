@@ -34,167 +34,127 @@ This cloud-native application combines Node.js microservices with AWS serverless
 - SendGrid integration for email delivery
 
 **Infrastructure Components**
-# Infrastructure Components
 
 This repository contains the following Terraform configuration files:
 
-## EC2 Configuration
-### `ec2.tf`
+**EC2 Configuration**
+- `ec2.tf`
 Defines the EC2 instances, including:
 - Instance type (e.g., `t2.micro`, `m5.large`).
 - AMI selection.
 - Key pair configurations.
 - Tags and metadata.
 
----
-
-## RDS Configuration
-### `rds.tf`
+**RDS Configuration**
+- `rds.tf`
 Sets up RDS (Relational Database Service), including:
 - Database engine (PostgreSQL).
 - Storage configuration (size and type).
 - Credentials and access control.
 
----
-
-## Lambda Functions
-### `lambda.tf`
+**Lambda Functions**
+- `lambda.tf`
 Manages AWS Lambda functions, including:
 - Runtime environment (e.g., Node.js).
 - Function handler and memory allocation.
 - Event triggers (e.g., S3, SNS).
 
----
-
-## SNS Setup
-### `sns.tf`
+**SNS Setup**
+- `sns.tf`
 Configures Simple Notification Service (SNS):
 - Topic creation.
 - Subscriptions (e.g., email, Lambda).
 
----
-
-## CloudWatch Monitoring
-### `cloudwatch.tf`
+**CloudWatch Monitoring**
+- `cloudwatch.tf`
 Sets up CloudWatch for:
 - Metrics and Alarms.
 - Logs and monitoring.
 
----
-
-## NAT Gateway
-### `nat.tf`
+**NAT Gateway**
+- `nat.tf`
 Defines NAT Gateway configurations to:
 - Enable internet access for private subnets.
 
----
-
-## VPC Configuration
-### `vpc.tf`
+**VPC Configuration**
+- `vpc.tf`
 Configures the Virtual Private Cloud (VPC):
 - CIDR blocks.
 - Subnets (private and public).
 - Route tables and internet gateways.
 
----
-
-## Load Balancer
-### `loadbalancer.tf`
+**Load Balancer**
+- `loadbalancer.tf`
 Manages Application or Network Load Balancers:
 - Listener configurations.
 - Target groups.
 
----
-
-## Auto Scaling Groups
-### `autoscaling.tf`
+**Auto Scaling Groups**
+-`autoscaling.tf`
 Sets up Auto Scaling Groups:
 - Launch configurations.
 - Scaling policies.
 
----
-
-## IAM Roles and Policies
-### `iam.tf`
+**IAM Roles and Policies**
+-`iam.tf`
 Manages Identity and Access Management (IAM):
 - Roles for EC2, Lambda, and other services.
 - Custom policies for access control.
 
----
-
-## Key Management Service
-### `kms.tf`
+**Key Management Service**
+- `kms.tf`
 Configures AWS Key Management Service (KMS):
 - Encryption keys.
 - Key policies.
-
----
-
-## CloudWatch Log Groups
-### `logGroup.tf`
+  
+**CloudWatch Log Groups**
+- `logGroup.tf`
 Sets up CloudWatch Log Groups:
 - Retention policies.
 - Logging configurations.
-
----
-
-## Route 53
-### `route53.tf`
+  
+**Route 53**
+- `route53.tf`
 Manages Route 53 DNS configurations:
 - Hosted zones.
 - Record sets (e.g., A, CNAME).
 
----
-
-## Routing Tables
-### `routes.tf`
+**Routing Tables**
+**`routes.tf`**
 Defines routing configurations:
 - Public and private routes.
 - Internet Gateway (IGW) routing.
-
----
-
-## S3 Buckets
-### `s3.tf`
+  
+**S3 Buckets**
+- `s3.tf`
 Configures S3 buckets:
 - Versioning and lifecycle rules.
 - Bucket policies and encryption.
 
----
-
-## Security Groups
-### `securitygroup.tf`
+**Security Groups**
+- `securitygroup.tf`
 Manages Security Groups:
 - Inbound and outbound rules.
 - Port and IP restrictions.
 
----
-
-## Outputs
-### `outputs.tf`
+**Outputs**
+- `outputs.tf`
 Exposes outputs for use in other modules:
 - EC2 instance IDs.
 - S3 bucket names.
 - Database connection details.
 
----
-
-## Providers
-### `providers.tf`
+**Providers**
+- `providers.tf`
 Defines provider configurations:
 - AWS region.
 - Authentication setup (via environment or profile).
 
----
-
-## Main Configuration
-### `main.tf`
+**Main Configuration**
+- `main.tf`
 Primary entry point that:
 - Links modules and resources.
 - Orchestrates the infrastructure components.
-
----
-
 
 ## Infrastructure as Code
 
@@ -259,6 +219,4 @@ The application uses a multi-stage deployment process:
 ## Cloud Architecture
 
 ![Cloud Architecture]
-```
-
-This version adapts the instructions and structure for a Node.js-based application while maintaining the original cloud-native focus. Let me know if you’d like any further refinements!
+![Cloud_Architecture drawio](https://github.com/user-attachments/assets/cac35332-29a9-46f3-a7b9-f3a3bd82d2bc)
