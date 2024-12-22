@@ -31,7 +31,7 @@ This cloud-native application combines Node.js microservices with AWS serverless
 - Email verification service
 - Token management with 2-minute expiration
 - RDS integration for token storage
-- SendGrid integration for email delivery
+- Mailgun integration for email delivery
 
 **Infrastructure Components**
 
