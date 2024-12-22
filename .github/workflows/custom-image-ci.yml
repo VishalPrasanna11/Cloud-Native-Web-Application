@@ -1,0 +1,238 @@
+name: Build Packer Custom Image
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  build_custom_image:
+    if: github.event.pull_request.merged == true
+    name: Build Custom Image Pipeline
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ${{ secrets.DB_USERNAME }}
+          POSTGRES_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.DB_NAME }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Compressing the project to the zip file
+        run: zip -r webapp.zip .
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20.12.2'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run integration tests
+        env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          PORT: ${{ secrets.PORT }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          SSL_OPTIONS: ${{ secrets.SSL_OPTIONS }}
+        run: npm test
+
+      - name: Build application artifact
+        run: |
+          npm run build
+
+      - name: Packer init (Initialize Packer)
+        working-directory: infra
+        run: |
+          packer init .
+
+      - name: Set up AWS CLI
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Build Packer Custom Image
+        working-directory: infra
+        id: packer_build  
+        run: |
+          # Run Packer build and capture output
+          packer build -machine-readable \
+            -var "app_path=/home/csye6225/my_app" \
+            -var "service_name=${{ secrets.service_name }}" \
+            -var "aws_region=${{ secrets.aws_region_ci }}" \
+            -var "source_ami=${{ secrets.source_ami }}" \
+            -var "ami_name=${{ secrets.ami_name }}" \
+            -var "instance_type=${{ secrets.instance_type }}" \
+            -var "subnet_id=${{ secrets.subnet_id }}" \
+            -var "ssh_username=${{ secrets.ssh_username }}" \
+            aws.pkr.hcl | tee packer.log
+
+          # Extract the AMI ID from the log file
+          AMI_ID=$(awk -F, '/artifact,0,id/ {print $6}' packer.log | cut -d: -f2)
+
+          # Echo AMI ID before processing further
+          echo "AMI ID before processing: $AMI_ID"
+
+          # Check if AMI_ID is not empty and set outputs
+          if [ -n "$AMI_ID" ]; then
+            echo "New AMI created: $AMI_ID"
+            echo "ami_id=$AMI_ID" >> $GITHUB_OUTPUT
+            echo "AMI_CREATED=true" >> $GITHUB_OUTPUT
+            echo "AMI_ID=$AMI_ID" >> $GITHUB_ENV
+          else
+            echo "No new AMI was created"
+            echo "AMI_CREATED=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Share AMI with Demo Account
+        if: steps.packer_build.outputs.AMI_CREATED == 'true'
+        run: |
+          AMI_ID=${{ steps.packer_build.outputs.ami_id }}
+
+          if [ -z "${{ secrets.DEMO_ID }}" ]; then
+            echo "DEMO_ID is not set. Skipping sharing the AMI."
+          else
+            aws ec2 modify-image-attribute \
+              --image-id "$AMI_ID" \
+              --launch-permission "Add=[{UserId=${{ secrets.DEMO_ID }}}]" \
+              --region "${{ secrets.aws_region_ci }}"
+          fi
+
+      - name: Get the Environment
+        id: fetch-environment-vars
+        run: |
+          echo "IS_DEV_ENVIRONMENT=${{ vars.isDevEnvironment }}" >> $GITHUB_ENV
+          echo "IS_DEMO_ENVIRONMENT=${{ vars.isDemoEnvironment }}" >> $GITHUB_ENV
+
+      - name: Set the Environment
+        id: determine-environment
+        run: |
+          if [ "${{ env.IS_DEV_ENVIRONMENT }}" == "true" ] && [ "${{ env.IS_DEMO_ENVIRONMENT }}" == "true" ]; then
+            echo "ENVIRONMENTS=dev,demo" >> $GITHUB_ENV
+          elif [ "${{ env.IS_DEV_ENVIRONMENT }}" == "true" ]; then
+            echo "ENVIRONMENTS=dev" >> $GITHUB_ENV
+          elif [ "${{ env.IS_DEMO_ENVIRONMENT }}" == "true" ]; then
+            echo "ENVIRONMENTS=demo" >> $GITHUB_ENV
+          else
+            echo "No environments are ready yet. Exiting gracefully."
+            exit 0
+          fi
+
+      - name: Configure DEV account AWS credentials
+        if: contains(env.ENVIRONMENTS, 'dev')
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Process dev environment
+        if: ${{ env.ENVIRONMENTS == 'dev' || env.ENVIRONMENTS == 'dev,demo' }}
+        run: |
+          echo "AMI_ID in dev process =${{ env.AMI_ID }}" >> $GITHUB_ENV
+          echo "currently running in Dev Environment..."
+          # Add Dev-specific commands here
+
+          echo "Update Launch Template started..."
+          # Update Launch Template
+          aws ec2 create-launch-template-version \
+            --launch-template-name "${{ secrets.LAUNCH_TEMPLATE_NAME }}" \
+            --source-version "\$Latest" \
+            --version-description "Updated with latest AMI ID" \
+            --launch-template-data "{\"ImageId\": \"${{ env.AMI_ID }}\"}"
+          echo "Updated launch template successfully..."
+
+          echo "Modify Launch Template started..."
+          aws ec2 modify-launch-template \
+            --launch-template-name "${{ secrets.LAUNCH_TEMPLATE_NAME }}" \
+            --default-version "\$Latest"
+          echo "Launch template modified successfully..."
+
+          # Start Instance Refresh
+          REFRESH_ID=$(aws autoscaling start-instance-refresh \
+            --auto-scaling-group-name "${{ secrets.AUTOSCALING_GROUP_NAME }}" \
+            --preferences '{"MinHealthyPercentage": 50}' \
+            --query 'InstanceRefreshId' \
+            --output text)
+
+          echo "REFRESH_ID=$REFRESH_ID" >> $GITHUB_ENV
+
+          echo "Instance Refresh Started..."
+          sleep 30
+
+          while true; do
+            STATUS=$(aws autoscaling describe-instance-refreshes \
+              --auto-scaling-group-name "${{ secrets.AUTOSCALING_GROUP_NAME }}" \
+              --query "InstanceRefreshes[0].Status" \
+              --output text)
+            echo "Current Status: $STATUS"
+            if [ "$STATUS" == "Successful" ]; then
+              echo "Instance Refresh Completed Successfully!"
+              break
+            elif [ "$STATUS" == "Failed" ]; then
+              echo "Instance Refresh Failed."
+              exit 1
+            else
+              echo "Instance Refresh In Progress... Checking again in 30 seconds."
+              sleep 30
+            fi
+          done
+
+      - name: Configure DEMO account AWS credentials
+        if: ${{ env.ENVIRONMENTS == 'demo' || env.ENVIRONMENTS == 'dev,demo' }}
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.DEMO_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.DEMO_AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Process demo environment
+        if: contains(env.ENVIRONMENTS, 'demo')
+        run: |
+          echo "AMI_ID in demo process=${{ env.AMI_ID }}" >> $GITHUB_ENV
+          echo "currently running in Demo Environment..."
+          # Add Demo-specific commands here
+
+          echo "Update Launch Template started..."
+          # Update Launch Template
+          aws ec2 create-launch-template-version \
+            --launch-template-name "${{ secrets.LAUNCH_TEMPLATE_NAME }}" \
+            --source-version "\$Latest" \
+            --version-description "Updated with latest AMI ID" \
+            --launch-template-data "{\"ImageId\": \"${{ env.AMI_ID }}\"}"
+          echo "Updated launch template successfully..."
+
+          echo "Modify Launch Template started..."
+          aws ec2 modify-launch-template \
+            --launch-template-name "${{ secrets.LAUNCH_TEMPLATE_NAME }}" \
+            --default-version "\$Latest"
+          echo "Launch template modified successfully..."
+
+          # Start Instance Refresh
+          REFRESH_ID=$(aws autoscaling start-instance-refresh \
+            --auto-scaling-group-name "${{ secrets.AUTOSCALING_GROUP_NAME }}" \
+            --preferences '{"MinHealthyPercentage": 50}' \
+            --query 'InstanceRefreshId' \
+            --output text)
+
+          echo "REFRESH_ID=$REFRESH_ID" >> $GITHUB_ENV
+
+          echo "Instance Refresh Started..."
+          sleep 30

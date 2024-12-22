@@ -1,0 +1,20 @@
+meta {
+  name: Post User Request
+  type: http
+  seq: 7
+}
+
+post {
+  url: http://localhost:8080/v1/user
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "email":"vishalsunawala@gmail.com",
+    "first_name":"Vishal",
+    "last_name":"Prasanna",
+    "password":"sunawala"
+  }
+}
