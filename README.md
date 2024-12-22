@@ -35,8 +35,6 @@ This cloud-native application combines Node.js microservices with AWS serverless
 
 **Infrastructure Components**
 
-This repository contains the following Terraform configuration files:
-
 **EC2 Configuration**
 - `ec2.tf`
 Defines the EC2 instances, including:
@@ -90,7 +88,7 @@ Manages Application or Network Load Balancers:
 - Target groups.
 
 **Auto Scaling Groups**
--`autoscaling.tf`
+- `autoscaling.tf`
 Sets up Auto Scaling Groups:
 - Launch configurations.
 - Scaling policies.
@@ -120,7 +118,7 @@ Manages Route 53 DNS configurations:
 - Record sets (e.g., A, CNAME).
 
 **Routing Tables**
-**`routes.tf`**
+- `routes.tf`
 Defines routing configurations:
 - Public and private routes.
 - Internet Gateway (IGW) routing.
@@ -218,5 +216,14 @@ The application uses a multi-stage deployment process:
 
 ## Cloud Architecture
 
-![Cloud Architecture]
 ![Cloud_Architecture drawio](https://github.com/user-attachments/assets/cac35332-29a9-46f3-a7b9-f3a3bd82d2bc)
+
+## Acknowledgements
+
+This project was a part of **CSYE6225: Network Structures and Cloud Computing**. We would like to express our gratitude to **Professor Tejas Parikh** for his guidance and support throughout the course.
+
+
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
